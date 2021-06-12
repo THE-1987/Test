@@ -1,4 +1,4 @@
-#include <iostream>
+// #include <iostream>
 // #include <fstream>
 // #include <sstream>
 // #include <string>
@@ -503,8 +503,8 @@ using namespace std;
 // struct X{
 //         explicit X()=default;
 //         explicit X(int){}
-//         explicit X(X const&)=default; // コピーコンストラクタもOK
-//         explicit X(X&&)=default; // ムーブコンストラクタもOK
+//         explicit X(X const&)=default; // コピーコンストラクタも OK
+//         explicit X(X&&)=default; // ムーブコンストラクタも OK
 //
 //         explicit operator int()
 //         {
@@ -512,7 +512,30 @@ using namespace std;
 //         }
 // };
 //
-// void f(X){}
+// explicit指定されたコンストラクタと変換関数は直接初期化，明示的なキャストでないと呼び出されない
+// X x1=1; // エラー，コピー初期化
+// X x2={1}; // エラー，コピー初期化
+// X x3{1}; // OK
+// X x4(1); // OK
+// // X x5({1}); // Clangでは警告を出す，GCCではOK
+// // X x6=x3; // エラー
+// X x7{x3}; // OK
+// X x8=X{1}; // OK
+// X x9=static_cast<X>(1); // OK
+//
+// void f(X);
+// // f(x3); // エラー
+// f(X{x3}); // OK
+// X x10{};
+// X x11({}); // OK，ただしX(int)が呼ばれていて，intを{}で値初期化している
+// // もしX(int)が宣言されていない場合，コピー or ムーブコンストラクタが呼ばれる
+// // その際引数部分で X const& x ={} or X&& x={} とリスト初期化が行われる
+// // この時，一時オブジェクトtの生成にて X t={} が行われるが，デフォルトコンストラクタがexplicitなのでエラーとなる
+//
+// int a1=x3; // エラー
+// int a2{x3}; // OK
+// int a3=int{x3}; // OK
+// int a4=static_cast<int>(x3); // OK
 
 
 /**
@@ -542,6 +565,11 @@ using namespace std;
 //                 return Y();
 //         }
 // };
+//
+// Y y1;
+// Y y2=y1; // Y::operator Y()は呼ばれない
+// X& x=y1;
+// Y y3=x; // オーバーライドしたY::operator Y()が呼ばれる
 
 
 /**
@@ -600,7 +628,35 @@ using namespace std;
 /**
  * ローカルクラスの仕様を確認したい
  */
+// // ローカルクラスのスコープは，それを囲っているブロックスコープである
+// // 囲っている関数の外側の名前へのアクセスは，その関数と同じになる
+// // 囲っている関数の自動変数は使用できない(odr-usable)，typedefやstatic変数は使用できる
+// // ローカルクラスはテンプレート宣言できない，メンバーテンプレートもできない
+// // メンバ関数はクラス内定義しなくてはならない，クラス外での定義はできない
+// // staticメンバ変数を持つことはできない
+// // ローカルクラス内で宣言されたネストクラスは，そのローカルクラス内，またはそのローカルクラスと同じスコープ内で定義できる
+// // ローカルクラス内のネストクラスもまたローカルクラスである
 // struct X;
+//
+// void f()
+// {
+//        char a;
+//        static int b;
+//       
+//        struct X; // ローカルクラスXの前方宣言，::X を隠す
+//        struct Y;
+//
+//        struct X{
+//                void f()
+//                {
+//                        // a='a'; // エラー
+//                        b=1987; // OK
+//                 }
+//                 struct Y; // ネストクラスYの前方宣言，Xの外側のローカルクラスYとは異なる
+//         };
+//
+//         struct X::Y{}; // OK，囲っているクラスXと同じスコープで定義できる
+// }
 
 
 /**
@@ -624,6 +680,20 @@ using namespace std;
 //         friend void f(){} // OK，ただしfを呼び出す方法は存在しない
 //         friend void X::g(); // エラー，X::gはクラスXのprivateメンバ
 // };
+//
+// void i()
+// {
+//         // ローカルクラス内でのfriend宣言で非修飾名を使った場合，
+//         // 名前探索においてローカルクラスの定義されている関数外のスコープは考慮されない
+//         // その宣言が関数の場合，前方宣言が必要であり
+//         // その宣言がクラスの場合，クラス名はローカルクラスの名前と解釈される
+//         class X{
+//                 // friend void h(); // エラー，前方宣言が必要
+//                 // たとえグローバル名前空間にhが宣言されていたとしても考慮されない，その場合修飾名::hを使う必要がある
+//
+//                 friend class Y; // OK，ローカルクラスYを宣言
+//         };
+// }
 
 
 /**
@@ -756,6 +826,20 @@ using namespace std;
 //                 return 1987;
 //         }
 // };
+//
+// // 型Tに対して T t(e) と宣言できる場合，式eは型Tに明示的に変換可能である
+// // この時Tが参照型の場合は，一時オブジェクトtをそのまま使うことと同じになる
+// // それ以外の場合，結果のオブジェクトは式eから直接初期化される
+// X x;
+// int a;
+// x=static_cast<X>(1987); // OK
+// a=static_cast<int>(x); // OK
+//
+// // 任意の式は明示的に(cv)void型へ変換可能である
+// // 用途としては，未使用の変数に対する警告を避けるためなど
+// static_cast<void>(0); // OK
+// static_cast<void>(1+1); // OK
+// static_cast<void>(x); // OK
 
 
 /**
@@ -765,6 +849,29 @@ using namespace std;
 // {
 //         cout << s << endl;
 // }
+//
+// 関数ポインタに対して，const_castを使うことはできない
+// 未定義動作を引き起こす値に繋がってしまうため使うことはできない
+// 同様な理由でメンバ関数ポインタ，関数への参照にも使えない
+// 当然，仮引数のconstや，constメンバ関数のconstを変更することもできない
+// using T=void (*)(char*);
+// using U=void (*)(char const*);
+//
+// T p=&f;
+// T const q=const_cast<T const>(p); // エラー
+// U r=const_cast<U>(p); // エラー
+
+
+/**
+ * void (cv)*とのキャストについて確認したい
+ */
+// 任意のポインタはvoid (cv)*へ暗黙に変換可能
+// 逆にvoid (cv)*はキャストを用いて任意のポインタ(cvは同じで)に変換可能
+// T (cv)* → void (cv)* → T (cv)* としても値は保持される
+// char c='0';
+// void* p=&c;
+// char* q=p; // エラー，暗黙には変換できない
+// cout << static_cast<char*>(p) << endl;
 
 
 /**
@@ -772,11 +879,23 @@ using namespace std;
  */
 // void f(char);
 // void g(char const);
+//
+// 関数はC言語との互換性のために，"関数の型"として引数のトップレベルのconst修飾を無視する
+// 従ってトップレベルをconst修飾しても関数の型は変わらない，そのためオーバーロードも起きない
+// しかし，これは引数自体の型を変換している訳ではないため，引数のconstの性質はそのまま残る
+// if(typeid(f)==typeid(g)){
+//         cout << "Same type" << endl;
+// }
 
 
 /**
  * 純粋仮想関数(デストラクタ)のオーバーライドと挙動を確認したい
  */
+// 仮想デストラクタは，派生クラスのデストラクタに自動的にオーバーライドされる
+// 純粋仮想関数は，たとえ定義を持っていても，仮想関数呼び出しされた時の挙動は未定義である
+// 純粋仮想関数は，関数呼び出しをされる時は定義を持ってなくてはいけない
+// 基底クラスの仮想デストラクタは，派生クラスの仮想デストラクタに，非仮想関数呼び出しをされる(らしい)
+// 従って，純粋仮想デストラクタは定義を持たなくてはいけない
 // struct X{
 //         virtual void f()=0;
 //         virtual ~X()=0;
@@ -805,6 +924,10 @@ using namespace std;
 //                 f();
 //         }
 // };
+//
+// Y y;
+// X& x=y;
+// x.~X(); // ~Y()が呼ばれ，~X()が非純粋仮想関数呼び出しされる
 
 
 /**
@@ -846,6 +969,8 @@ using namespace std;
  * 暗黙的に定義されるコピーコンストラクタの引数は，
  * メンバが持つコピーコンストラクタの引数から影響を受ける事の確認をしたい
  */
+// 暗黙的に定義されるコピーコンストラクタの引数は，
+// メンバが持つコピーコンストラクタの引数から影響を受ける
 // struct Y{
 //         Y()=default;
 //         Y(Y&)=default;
@@ -854,6 +979,12 @@ using namespace std;
 // struct X{
 //         Y a;
 // };
+//
+// Yのコピーコンストラクタが Y::Y(Y const&) または Y::Y(Y const volatile&) である場合は，X::(X const&) になる
+// それ以外は X::X(X&) になる
+// X const x1;
+//
+// X x2(x1); // エラー
 
 
 /**
@@ -873,6 +1004,10 @@ using namespace std;
 //         enum E {alpha, beta}; // unscoped enum
 //         enum class Eclass{ first, second }; // scoped enum
 // };
+//
+// cout << Base::alpha << endl; // OK
+// cout << Base::E::beta << endl; // OK
+// cout << static_cast<int>(Base::Eclass::second) << endl; // OK，この書き方以外NG
 
 
 /**
@@ -926,7 +1061,6 @@ using namespace std;
  * cvr修飾された非staticメンバ関数の暗黙の引数の型を確認したい(volatileは無し)
  */
 // struct X {
-//
 //         int data;
 //
 //         X(int a=0): data(a){}
@@ -956,6 +1090,115 @@ using namespace std;
 //                 cout << "const&;" << data << endl;
 //         }
 // };
+//
+// union None{
+//         void (X::*cpy)();
+//
+//         void (*F1)(X& s);
+//         void (*F2)(X&& s);
+// } u1;
+//
+// union Const{
+//         void (X::*cpy)()const;
+//
+//         void (*F3)(X const& s);
+// } u2;
+//
+// union Lref{
+//         void (X::*cpy)()&;
+//
+//         void (*F1)(X& s);
+// } u3;
+//
+// union Rref{
+//         void (X::*cpy)()&&;
+//
+//         void (*F2)(X&& s);
+// } u4;
+//
+// union ConstantRef{
+//         void (X::*cpy)()const&;
+//
+//         void (*F3)(X const& s);
+// } u5;
+//
+// u1.cpy=&X::F_none;
+// u2.cpy=&X::F_const;
+// u3.cpy=&X::F_Lref;
+// u4.cpy=&X::F_Rref;
+// u5.cpy=&X::F_ConstRef;
+//
+// X x1;
+// X const x2;
+//
+// (*u1.F1)(x1);
+// (*u1.F2)(X(1));
+//
+// (*u2.F3)(x2);
+// (*u2.F3)(X(1));
+//
+// (*u3.F1)(x1);
+//
+// (*u4.F2)(X(1));
+//
+// (*u5.F3)(x2);
+// (*u5.F3)(X(1));
+
+
+/**
+ * 無名unionの仕様を確認したい
+ */
+// 無名unionは，メンバ関数を持てないためアクセス指定子も指定できない
+// 無名unionは，非staticメンバ変数しか持てない
+// 名前空間スコープで宣言する際はstaticを指定しなくてはいけない
+// void f()
+// {
+//         union {
+//                 char c;
+//                 int i;
+//         };
+// }
+
+
+/**
+ * (i/o)stringstreamの使い方を確認したい
+ */
+// char str[]={"1987 hoge 3.14"};
+// int m;
+// char s[10]={};
+// float f;
+//
+// // istringstreamはsscanfに代替するもの
+// // 以下はsscanf(str, "%d %s %f", &m, s, &f)してるのと同じ
+// // 型が一致していないとエラーになる
+// istringstream iss(str);
+// iss >> m;
+// iss >> s;
+// iss >> f;
+//
+// cout << m << '\n';
+// cout << s << '\n';
+// cout << f << endl;
+//
+// // ostringstreamはsprintfに代替するもの
+// // 以下はsprintf(str, "%d %s %f", m, s, f)してるのと同じ
+// ostringstream oss;
+// oss << m << ' ' << s << ' ' << f;
+//
+// cout << oss.str() << endl;
+
+
+/**
+ * (i/o)fstream の使い方を確認したい
+ */
+// string str;
+// ifstream ifs("abc.txt");
+// ofstream ofs("def.txt");
+//
+// while(!getline(ifs, str).eof()){
+//         cout << str << endl;
+//         ofs << str << endl;
+// }
 
 
 /**
@@ -997,340 +1240,46 @@ using namespace std;
 //                 cout << "Destructor." << endl;
 //         }
 // };
+//
+// 以下 const& による一時オブジェクトの生成とコピー時省略の確認
+// // デフォルトコンストラクタ
+// X x1;
+//
+// // コピーコンストラクタ
+// X x2(x1), x3=x1;
+//
+// // ムーブコンストラクタ
+// X x4(move(x2)), x5=static_cast<X&&>(x3);
+//
+// // コピー演算子
+// x4=x5;
+//
+// // ムーブ演算子
+// x4=move(x5);
+//
+// // コピー省略
+// // rvalueで初期化しようとしてもムーブコンストラクタが呼ばれず，デフォルトコンストラクタが呼ばれる
+// X x6=X();
+//
+// // const& による一時オブジェクトの生成
+// // 一時オブジェクトが生成され，const& はそれを参照している?
+// X const& x7=X(x1);
+// X const& x8=2;
 
 
-int main()
-{
-        /**
-         * explicit指定子の仕様を確認したい
-         */
-        // explicit指定されたコンストラクタと変換関数は直接初期化，明示的なキャストでないと呼び出されない
-        // X x1=1; // エラー，コピー初期化
-        // X x2={1}; // エラー，コピー初期化
-        // X x3{1}; // OK
-        // X x4(1); // OK
-        // // X x5({1}); //Clangでは警告を出す，GCCではOK
-        // // X x6=x3; // エラー
-        // X x7{x3}; // OK
-        // X x8=X{1}; // OK
-        // X x9=static_cast<X>(1); // OK
-        // // f(x3); // エラー
-        // f(X{x3}); // OK
-        // X x10{};
-        // X x11({}); // OK，ただしX(int)が呼ばれていて，intを{}で値初期化している
-        // // もしX(int)が宣言されていない場合，コピー or ムーブコンストラクタが呼ばれる
-        // // その際引数部分で X const& x ={} or X&& x={} とリスト初期化が行われる
-        // // この時，一時オブジェクトtの生成にて X t={} が行われるが，デフォルトコンストラクタがexplicitなのでエラーとなる
-        //
-        // int a1=x3; // エラー
-        // int a2{x3}; // OK
-        // int a3=int{x3}; // OK
-        // int a4=static_cast<int>(x3); // OK
+/**
+ * ポインタのcv変換の仕様を確認したい
+ */
+// char** から char const** には変換できない
+// 仮にできた場合，char*がchar constのポインタを持ててしまうような例が作れる
+// 詳細は N4659 に記載されている
+// char const a='a';
+// char *p;
+//
+// char const** q=&p;
+// *q=&a;       // p=&a が実現できてしまう
+// *p='A';
+//
+// char *p;
+// char *const* q=&p; // これは問題ない
 
-
-        /**
-         * 変換関数の細かい仕様を確認したい
-         */
-        // Y y1;
-        // Y y2=y1; // Y::operator Y()は呼ばれない
-        // X& x=y1;
-        // Y y3=x; // オーバーライドしたY::operator Y()が呼ばれる
-
-
-        /**
-         * ローカルクラスの仕様を確認したい
-         */
-        // // ローカルクラスのスコープは，それを囲っているブロックスコープである
-        // // 囲っている関数の外側の名前へのアクセスは，その関数と同じになる
-        // // 囲っている関数の自動変数は使用できない(odr-usable)，typedefやstatic変数は使用できる
-        // // ローカルクラスはテンプレート宣言できない，メンバーテンプレートもできない
-        // // メンバ関数はクラス内定義しなくてはならない，クラス外での定義はできない
-        // // staticメンバ変数を持つことはできない
-        // // ローカルクラス内で宣言されたネストクラスは，そのローカルクラス内，またはそのローカルクラスと同じスコープ内で定義できる
-        // // ローカルクラス内のネストクラスもまたローカルクラスである
-        // char a;
-        // static int b;
-        //
-        // struct X; // ローカルクラスXの前方宣言，::X を隠す
-        // struct Y;
-        //
-        // struct X{
-        //         void f()
-        //         {
-        //                 // a='a'; // エラー
-        //                 b=1987; // OK
-        //         }
-        //
-        //         struct Y; // ネストクラスYの前方宣言，Xの外側のローカルクラスYとは異なる
-        // };
-        //
-        // struct X::Y{}; // OK，囲っているクラスXと同じスコープで定義できる
-
-
-        /**
-         * friend指定子でのクラス定義内宣言・定義について確認したい
-         */
-        // ローカルクラス内でのfriend宣言で非修飾名を使った場合，
-        // 名前探索においてローカルクラスの定義されている関数外のスコープは考慮されない
-        // その宣言が関数の場合，前方宣言が必要であり
-        // その宣言がクラスの場合，クラス名はローカルクラスの名前と解釈される
-        // class X{
-        //         friend void h(); // エラー，前方宣言が必要
-        //         // たとえグローバル名前空間にhが宣言されていたとしても考慮されない，その場合修飾名::hを使う必要がある
-        //
-        //         friend class Y; // OK，ローカルクラスYを宣言
-        // };
-
-
-        /**
-         * static_castの細かい挙動を確認したい
-         * [expr.static.cast]
-         */
-        // // 型Tに対して T t(e) と宣言できる場合，式eは型Tに明示的に変換可能である
-        // // この時Tが参照型の場合は，一時オブジェクトtをそのまま使うことと同じになる
-        // // それ以外の場合，結果のオブジェクトは式eから直接初期化される
-        // X x;
-        // int a;
-        // x=static_cast<X>(1987); // OK
-        // a=static_cast<int>(x); // OK
-        //
-        // // 任意の式は明示的に(cv)void型へ変換可能である
-        // // 用途としては，未使用の変数に対する警告を避けるためなど
-        // static_cast<void>(0); // OK
-        // static_cast<void>(1+1); // OK
-        // static_cast<void>(x); // OK
-
-
-        /**
-         * 関数ポインタをconst_castできないことを確認したい
-         */
-        // 関数ポインタに対して，const_castを使うことはできない
-        // 未定義動作を引き起こす値に繋がってしまうため使うことはできない
-        // 同様な理由でメンバ関数ポインタ，関数への参照にも使えない
-        // 当然，仮引数のconstや，constメンバ関数のconstを変更することもできない
-        // using T=void (*)(char*);
-        // using U=void (*)(char const*);
-        //
-        // T p=&f;
-        // T const q=const_cast<T const>(p); // エラー
-        // U r=const_cast<U>(p); // エラー
-
-
-        /**
-         * void (cv)*とのキャストについて確認したい
-         */
-        // 任意のポインタはvoid (cv)*へ暗黙に変換可能
-        // 逆にvoid (cv)*はキャストを用いて任意のポインタ(cvは同じで)に変換可能
-        // T (cv)* → void (cv)* → T (cv)* としても値は保持される
-        // char c='0';
-        // void* p=&c;
-        // char* q=p; // エラー，暗黙には変換できない
-        // cout << static_cast<char*>(p) << endl;
-
-
-        /**
-         * 関数の引数の型のルールを確認したい
-         */
-        // 関数はC言語との互換性のために，"関数の型"として引数のトップレベルのconst修飾を無視する
-        // 従ってトップレベルをconst修飾しても関数の型は変わらない，そのためオーバーロードも起きない
-        // しかし，これは引数自体の型を変換している訳ではないため，引数のconstの性質はそのまま残る
-        // if(typeid(f)==typeid(g)){
-        //         cout << "Same type" << endl;
-        // }
-
-
-        /**
-         * 純粋仮想関数(デストラクタ)のオーバーライドと挙動を確認したい
-         */
-        // 仮想デストラクタは，派生クラスのデストラクタに自動的にオーバーライドされる
-        // 純粋仮想関数は，たとえ定義を持っていても，仮想関数呼び出しされた時の挙動は未定義である
-        // 純粋仮想関数は，関数呼び出しをされる時は定義を持ってなくてはいけない
-        // 基底クラスの仮想デストラクタは，派生クラスの仮想デストラクタに，非仮想関数呼び出しをされる(らしい)
-        // 従って，純粋仮想デストラクタは定義を持たなくてはいけない
-        // Y y;
-        // X& x=y;
-        // x.~X();
-
-
-        /**
-         * 暗黙的に定義されるコピーコンストラクタの引数は，
-         * メンバが持つコピーコンストラクタの引数から影響を受ける事の確認をしたい
-         */
-        // 暗黙的に定義されるコピーコンストラクタの引数は，
-        // メンバが持つコピーコンストラクタの引数から影響を受ける
-        // Y::Y(Y const&) または Y::Y(Y const volatile&) である場合は，X::(X const&) になる
-        // それ以外は X::X(X&) になる
-        // X const x1;
-        //
-        // X x2(x1); // エラー
-
-
-        /**
-         * クラス内で定義されたscoped enumの呼び出しの書き方を確認したい
-         */
-        // cout << Base::alpha << endl; // OK
-        // cout << Base::E::beta << endl; // OK
-        // cout << static_cast<int>(Base::Eclass::second) << endl; // OK，この書き方以外NG
-
-
-        /**
-         * cvr修飾された非staticメンバ関数の暗黙の引数の型を確認したい(volatileは無し)
-         */
-        // union None{
-        //         void (X::*cpy)();
-        //
-        //         void (*F1)(X& s);
-        //         void (*F2)(X&& s);
-        // } u1;
-        //
-        //
-        // union Const{
-        //         void (X::*cpy)()const;
-        //
-        //         void (*F3)(X const& s);
-        // } u2;
-        //
-        //
-        // union Lref{
-        //         void (X::*cpy)()&;
-        //
-        //         void (*F1)(X& s);
-        // } u3;
-        //
-        //
-        // union Rref{
-        //         void (X::*cpy)()&&;
-        //
-        //         void (*F2)(X&& s);
-        // } u4;
-        //
-        // union ConstantRef{
-        //         void (X::*cpy)()const&;
-        //
-        //         void (*F3)(X const& s);
-        // } u5;
-        //
-        // u1.cpy=&X::F_none;
-        // u2.cpy=&X::F_const;
-        // u3.cpy=&X::F_Lref;
-        // u4.cpy=&X::F_Rref;
-        // u5.cpy=&X::F_ConstRef;
-        //
-        // X x1;
-        // X const x2;
-        //
-        // (*u1.F1)(x1);
-        // (*u1.F2)(X(1));
-        //
-        // (*u2.F3)(x2);
-        // (*u2.F3)(X(1));
-        //
-        // (*u3.F1)(x1);
-        //
-        // (*u4.F2)(X(1));
-        //
-        // (*u5.F3)(x2);
-        // (*u5.F3)(X(1));
-
-
-        /**
-         * ポインタのcv変換の仕様を確認したい
-         */
-        // char** から char const** には変換できない
-        // 仮にできた場合，char*がchar constのポインタを持ててしまうような例が作れる
-        // 詳細は N4659 に記載されている
-        // char const a='a';
-        // char *p;
-        //
-        // char const** q=&p;
-        // *q=&a;       // p=&a が実現できてしまう
-        // *p='A';
-        //
-        // char *p;
-        // char *const* q=&p; // これは問題ない
-
-
-        /**
-         * 無名unionの仕様を確認したい
-         */
-        // 無名unionは，メンバ関数を持てないためアクセス指定子も指定できない
-        // 無名unionは，非staticメンバ変数しか持てない
-        // 名前空間スコープで宣言する際はstaticを指定しなくてはいけない
-        // union {
-        //         char c;
-        //         int i;
-        // };
-        //
-
-
-        /**
-         * (i/o)stringstreamの使い方を確認したい
-         */
-        // char str[]={"1987 hoge 3.14"};
-        // int m;
-        // char s[10]={};
-        // float f;
-        //
-        // // istringstreamはsscanfに代替するもの
-        // // 以下はsscanf(str, "%d %s %f", &m, s, &f)してるのと同じ
-        // // 型が一致していないとエラーになる
-        // istringstream iss(str);
-        // iss >> m;
-        // iss >> s;
-        // iss >> f;
-        //
-        // cout << m << '\n';
-        // cout << s << '\n';
-        // cout << f << endl;
-        //
-        // // ostringstreamはsprintfに代替するもの
-        // // 以下はsprintf(str, "%d %s %f", m, s, f)してるのと同じ
-        // ostringstream oss;
-        // oss << m << ' ' << s << ' ' << f;
-        //
-        // cout << oss.str() << endl;
-
-
-        /**
-         * (i/o)fstreamの使い方を確認したい
-         */
-        // string str;
-        // ifstream ifs("abc.txt");
-        // ofstream ofs("def.txt");
-        //
-        // while(!getline(ifs, str).eof()){
-        //         cout << str << endl;
-        //         ofs << str << endl;
-        // }
-
-
-        /**
-         * 特殊メンバ関数の呼び出しを確認したい
-         */
-        // const& による一時オブジェクトの生成とコピー時省略の確認
-        // // デフォルトコンストラクタ
-        // X x1;
-        //
-        // // コピーコンストラクタ
-        // X x2(x1), x3=x1;
-        //
-        // // ムーブコンストラクタ
-        // X x4(move(x2)), x5=static_cast<X&&>(x3);
-        //
-        // // コピー演算子
-        // x4=x5;
-        //
-        // // ムーブ演算子
-        // x4=move(x5);
-        //
-        // // コピー省略
-        // // rvalueで初期化しようとしてもムーブコンストラクタが呼ばれず，デフォルトコンストラクタが呼ばれる
-        // X x6=X();
-        //
-        // // const& による一時オブジェクトの生成
-        // // 一時オブジェクトが生成され，const& はそれを参照している?
-        // X const& x7=X(x1);
-        // X const& x8=2;
-
-        return 0;
-}
