@@ -9,10 +9,70 @@
 using namespace std;
 
 /**
+ * label文の仕様を確認したい
+ * [stmt.label]
+ */
+// // label文は以下の3つの形式のいずれかである
+// // 1. (identifierラベル) attribute-specifier-seq_opt identifier : statement
+// // 2. (caseラベル) attribute-specifier-seq_opt case constant-expression : statement
+// // 3. (defaultラベル) attribute-specifier-seq_opt default : statement
+// // statementは必ず";"を含むため，label文の":"の後には必ず文が存在しなければならない
+// void f()
+// {
+//         // label: // NG，ラベルに続く文が無い
+// }
+//
+// // identifierラベルで宣言するidentifierは，goto文でしか使えない
+// // caseラベル，defaultラベルは，switch文の中でしか使えない
+// void g()
+// {
+//         label_1:; // OK，null文
+//         label_2:{} // OK，複合文
+//
+//         // label_1; // NG，identifierはgoto文でしか使えない
+//
+//         switch(0){
+//         case 0:; // OK
+//         default:; // OK
+//         }
+// }
+//
+// 関数内の2つのラベルが，同じidentifierを持ってはいけない
+// 即ち，ラベルを再宣言することはできない
+// void h()
+// {
+//         label:;
+//         label:; // NG，ラベルは再宣言できない
+// }
+//
+// identifierは，label文で宣言する前に使用できる
+// void i()
+// {
+//         goto label; // labelを宣言する前に使用できる
+//
+//         label:;
+// }
+
+
+/**
+ * goto文の仕様を確認したい
+ * [stmt.goto]
+ */
+// goto文は，label文によって指定された場所に無条件に制御を移す
+// goto文は，参照先のラベルと同じ関数内でなければならない
+// void f()
+// {
+//         label:; // labelという名前のlabel文
+//
+//         goto label;
+// }
+
+
+/**
  * conditionが宣言の時の仕様を確認したい
  * [stmt.pre]
  */
-// condtionは以下の2つの形式のいずれかである
+// conditionは以下の2つの形式のいずれかである
 // 1. expression
 // 2. attribute-specifier-seq_opt decl-specifier-seq declarator brace-or-equal-initializer
 // 2の形式のconditionは，宣言である
